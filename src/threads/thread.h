@@ -8,10 +8,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 
-#ifndef USERPROG
-/* Project #3. */
-extern bool thread_prior_aging;
-#endif
+
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -130,19 +127,24 @@ struct thread
     int file_cnt;
 
     /* added for Project 3. */
-    
 
 #endif
     
     int64_t wakeup_ticks;    
 /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    int nice;
+    int recent_cpu;   
   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+#ifndef USERPROG
+/* Project #3. */
+extern bool thread_prior_aging;
+#endif
 
 void thread_init (void);
 void thread_start (void);
@@ -179,4 +181,9 @@ void thread_sleep(int64_t ticks);
 void thread_awake(int64_t ticks);
 void update_min_wakeup_ticks(int64_t ticks);
 int64_t get_min_wakeup_ticks(void);
+struct list* get_ready_list(void);
+struct thread* get_idle_thread(void);
+int get_load_avg(void);
+struct list* get_all_list(void);
+int get_ready_list_size(void);
 #endif /* threads/thread.h */
