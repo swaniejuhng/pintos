@@ -437,10 +437,11 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
     void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
     int i, priority, recent_cpu_div_4, nice_times_2, pri_max_to_fp;
     if(thread_current() == idle_thread) return;
+    enum intr_level old_level = intr_disable();
 
     /* set the current thread's nice value to new_nice */
     thread_current()->nice = nice;
@@ -451,14 +452,20 @@ thread_set_nice (int nice UNUSED)
     // PRI_MAX - (recent_cpu / 4)
     priority = sub_fp_from_fp(pri_max_to_fp, recent_cpu_div_4);
     // PRI_MAX - (recent_cpu / 4) - (nice * 2)
-    priority = sub_int_from_fp(priority, nice_times_2);
+    priority = sub_fp_from_fp(priority, nice_times_2);
     priority = conv_fp_to_int_rnd_nearest(priority);
 
     priority = (priority < PRI_MIN) ? PRI_MIN : priority;
     priority = (priority > PRI_MAX) ? PRI_MAX : priority;
 
+    thread_current()->priority = priority;
+
     /* if the running thread no longer has the highest priority, yields. */
-    if(running_thread()->priority < priority) thread_yield();
+    struct list_elem* e = list_begin(&ready_list);
+    struct thread* t = list_entry(e, struct thread, elem);
+    if(running_thread()->priority < t->priority) thread_yield();
+
+    intr_set_level(old_level);
 }
 
 /* Returns the current thread's nice value. */
@@ -466,7 +473,7 @@ thread_set_nice (int nice UNUSED)
 thread_get_nice (void) 
 {
     /* return's current thread's nice value */
-    return thread_current()->nice;
+    return mul_fp_by_int(thread_current()->nice, 100)/F;
 }
 
 /* Returns 100 times the system load average. */
@@ -723,6 +730,7 @@ void thread_sleep(int64_t ticks) {
 
     t_curr->wakeup_ticks = ticks;
     update_min_wakeup_ticks(t_curr->wakeup_ticks);
+    //list_remove(&t_curr->elem);
     list_push_back(&sleeping_list, &t_curr->elem);
     //printf("i am here\n");
     thread_block();
@@ -755,6 +763,7 @@ void thread_awake(int64_t ticks) {
         if(ticks >= t->wakeup_ticks){
             e=list_remove(&t->elem);
             thread_unblock(t);
+            t->blocked = false;
         }
         else{
             e = list_next(e);
@@ -781,7 +790,7 @@ struct list* get_ready_list(void){
 }
 
 struct thread* get_idle_thread(void){
-    return &idle_thread;
+    return idle_thread;
 }
 
 int get_load_avg(void){
@@ -793,7 +802,14 @@ struct list* get_all_list(void){
 }
 
 int get_ready_list_size(void){
-    if(list_empty(&ready_list)) msg("READY LIST IS EMPTY\n");
-    else msg("READY LIST IS NOT EMPTY\n");
+    //if(list_empty(&ready_list)) msg("READY LIST IS EMPTY\n");
+    //else msg("READY LIST IS NOT EMPTY\n");
     return list_size(&ready_list);
 }
+
+void set_load_avg(int a){
+
+    load_avg = a;
+}
+
+

@@ -94,8 +94,9 @@ timer_sleep (int64_t ticks)
 
 
     ASSERT (intr_get_level () == INTR_ON);
-
+    thread_current()->blocked = true; 
     thread_sleep(start+ticks);
+    
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -191,21 +192,37 @@ timer_interrupt (struct intr_frame *args UNUSED)
             thread_current()->recent_cpu = add_fp_and_int(thread_current()->recent_cpu, 1);
 
         /* recalculate recent_cpu & load_avg every second */
+        
         if(timer_ticks() % TIMER_FREQ == 0) {
+            //recalc_LA_RC();
             ready_threads = get_ready_list_size();
-
+            //printf("name: %s\n", thread_name());
+            //printf("size: %d\n", ready_threads); 
             if((thread_current() != get_idle_thread()) && (thread_current()->status == THREAD_RUNNING))
                 ready_threads++;
-            printf("ready_threads: %d\n", ready_threads);
+            //printf("size: %d\n", ready_threads);
             /* RECALCULATE LOAD_AVG */
             /* load_avg = (59 / 60) * load_avg + (1 / 60) * ready_threads */
             load_avg = get_load_avg();
             fp_59 = conv_int_to_fp(59);
             fp_60 = conv_int_to_fp(60);
             fp_1 = conv_int_to_fp(1);
-            div_59_by_60 = div_fp_by_fp(59, 60);
-            div_1_by_60 = div_fp_by_fp(1, 60);
+            div_59_by_60 = div_fp_by_fp(fp_59, fp_60);
+            div_1_by_60 = div_fp_by_fp(fp_1, fp_60);
             load_avg = add_fp_and_fp(mul_fp_by_fp(div_59_by_60, load_avg), mul_fp_by_int(div_1_by_60, ready_threads));
+
+            //load_avg = div_fp_by_int(add_fp_and_int(mul_fp_by_int(load_avg,59),ready_threads),60);
+            //printf("load_avg: %d\n", load_avg);
+            set_load_avg(load_avg);
+
+            /*load_avg = get_load_avg();
+            fp_59 = conv_int_to_fp(59);
+            fp_60 = conv_int_to_fp(60);
+            fp_1 = conv_int_to_fp(1);
+            div_59_by_60 = div_fp_by_fp(fp_59, fp_60);
+            div_1_by_60 = div_fp_by_fp(fp_1, fp_60);
+            load_avg = add_fp_and_fp(mul_fp_by_fp(div_59_by_60, load_avg), mul_fp_by_int(div_1_by_60, ready_threads));
+            set_load_avg(load_avg);*/
 
             /* RECALCULATE RECENT_CPU */
             for(e = list_begin(all_list); e != list_end(all_list); e = list_next(e)) {
@@ -216,19 +233,26 @@ timer_interrupt (struct intr_frame *args UNUSED)
                 frac = div_fp_by_fp(load_avg_times_2, add_fp_and_int(load_avg_times_2, 1));
                 t->recent_cpu = mul_fp_by_fp(frac, t->recent_cpu);
                 t->recent_cpu = add_fp_and_int(t->recent_cpu, t->nice);
+
+                /*frac = div_fp_by_fp(mul_fp_by_int(load_avg, 2), add_fp_and_int(mul_fp_by_int(load_avg, 2), 1));
+                frac = mul_fp_by_fp(frac, t->recent_cpu);
+                t->recent_cpu = add_fp_and_int(frac, t->nice);*/
             }
         }
 
         /* recalculate priority every 4th tick*/
         if(timer_ticks() % 4 == 0) {
+            //recalc_priority();
             // ?????
             for(e = list_begin(all_list); e != list_end(all_list); e = list_next(e)) {
                 /* recent_cpu = (2 * load_avg) / (2 * load_avg + 1) * recent_cpu + nice */
                 t = list_entry(e, struct thread, allelem);
                 if(t == get_idle_thread()) continue;
                 /* recalculates the thread's priority based on the new value */
+
                 pri_max_to_fp = conv_int_to_fp(PRI_MAX);
-                recent_cpu_div_4 = div_fp_by_int(thread_current()->recent_cpu, 4);
+                //recent_cpu_div_4 = div_fp_by_int(thread_current()->recent_cpu, 4);
+                recent_cpu_div_4 = div_fp_by_int(t->recent_cpu, 4);
                 nice_times_2 = t->nice * 2;
                 // PRI_MAX - (recent_cpu / 4)
                 priority = sub_fp_from_fp(pri_max_to_fp, recent_cpu_div_4);

@@ -97,7 +97,8 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
+    
+    bool blocked;
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -186,4 +187,5 @@ struct thread* get_idle_thread(void);
 int get_load_avg(void);
 struct list* get_all_list(void);
 int get_ready_list_size(void);
+void set_load_avg(int a);
 #endif /* threads/thread.h */
